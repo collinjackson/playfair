@@ -5,11 +5,12 @@
 part of playfair;
 
 class ChartData {
-  const ChartData({ this.startX, this.endX, this.startY, this.endY, this.dataSet });
+  const ChartData({ this.startX, this.endX, this.startY, this.endY, this.dataSet, this.numScaleLabels });
   final double startX;
   final double endX;
   final double startY;
   final double endY;
+  final int numScaleLabels;
   final List<Point> dataSet;
 }
 
@@ -64,9 +65,17 @@ class RenderChart extends RenderConstrainedBox {
 }
 
 class ChartPainter {
-  ChartPainter(this.data);
+  ChartPainter();
 
-  ChartData data;
+  ChartData _data;
+  ChartData get data => _data;
+  void set data(ChartData value) {
+    assert(data != null);
+    if (_data == value)
+      return;
+    _data = value;
+    _labels = null;
+  }
 
   TextTheme _textTheme;
   TextTheme get textTheme => _textTheme;
@@ -75,13 +84,34 @@ class ChartPainter {
     if (_textTheme == value)
       return;
     _textTheme = value;
-    labels = [
-      new ParagraphPainter(new StyledTextSpan(_textTheme.body1, [new PlainTextSpan("${data.startY}")])),
-      new ParagraphPainter(new StyledTextSpan(_textTheme.body1, [new PlainTextSpan("${data.endY}")])),
-    ];
+    _labels = null;
   }
 
-  List<ParagraphPainter> labels;
+  List<ParagraphPainter> _scale;
+  double _scaleWidth;
+  int _numScaleLabels = 5;  // TODO(jackson): Make this configurable
+  void _buildScale() {
+    _scaleWidth = 0;
+    _scale = new List<ScaleLabel>();
+    for(int i = 0; i < data.numScaleLabels; i++) {
+      double value =
+      TextSpan text = new StyledTextSpan(_textTheme.body1, ["${value}"]);
+      ParagraphPainter painter = new ParagraphPainter(text);
+      _scale.add(painter);
+    }
+      for(ParagraphPainter painter in labels) {
+        painter.maxWidth = rect.width;
+        painter.layout();
+        _scaleWidth = math.max(_scaleWidth, painter.maxContentWidth);
+      }
+      labels[0].paint(canvas, rect.bottomRight.toOffset());
+      labels[1].paint(canvas, rect.topRight.toOffset());
+      Offset position = new Offset(rect.width - painter.maxContentWidth, )
+      label.paint(canvas, )
+      painter.maxWidth = rect.width;
+      painter.layout();
+      _scaleWidth = math.max(_scaleWidth, painter.maxContentWidth);
+  }
 
   Point _convertPointToRectSpace(Point point, Rect rect) {
     double x = rect.left + ((point.x - data.startX) / (data.endX - data.startX)) * rect.width;
@@ -110,12 +140,16 @@ class ChartPainter {
 
   void _paintScale(sky.Canvas canvas, Rect rect) {
     // TODO(jackson): Generalize this to draw the whole axis
-    for(ParagraphPainter painter in labels) {
-      painter.maxWidth = rect.width;
-      painter.layout();
+    if (_scale == null)
+      _buildScale();
+    double yPosition = 0.0;
+    assert(data.numScaleLabels > 1);
+    double increment = rect.height / (data.numScaleLabels - 1);
+    for(ParagraphPainter label in _scale) {
+      Offset offset = new Offset(rect.width - label.maxContentWidth, yPosition);
+      label.painter.paint(canvas, label.offset);
+      yPosition += increment;
     }
-    labels[0].paint(canvas, rect.bottomLeft.toOffset());
-    labels[1].paint(canvas, rect.topLeft.toOffset());
   }
 
   void paint(sky.Canvas canvas, Rect rect) {
